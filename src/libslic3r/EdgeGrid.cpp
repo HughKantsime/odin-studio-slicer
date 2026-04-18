@@ -3,7 +3,9 @@
 #include <float.h>
 #include <unordered_map>
 
+#if !defined(SLIC3R_IOS)
 #include <png.h>
+#endif
 
 #include "libslic3r.h"
 #include "ClipperUtils.hpp"

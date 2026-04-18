@@ -36,7 +36,12 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/foreach.hpp>
-#include <openssl/md5.h>
+#if defined(SLIC3R_IOS)
+  #define COMMON_DIGEST_FOR_OPENSSL
+  #include <CommonCrypto/CommonDigest.h>
+#else
+  #include <openssl/md5.h>
+#endif
 
 namespace pt = boost::property_tree;
 

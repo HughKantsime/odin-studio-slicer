@@ -154,6 +154,10 @@ if (APPLE)
     if (CMAKE_OSX_ARCHITECTURES AND _arch_idx LESS 0)
         set(IS_CROSS_COMPILE TRUE)
     endif ()
+    # iOS is always cross-compile (host = macOS; target = iOS even if both arm64).
+    if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+        set(IS_CROSS_COMPILE TRUE)
+    endif ()
     if (CMAKE_MACOSX_BUNDLE)
         set(CMAKE_INSTALL_RPATH @executable_path/../Frameworks)
     endif()
@@ -618,16 +622,24 @@ find_package(TBB REQUIRED)
 # The Intel TBB library will use the std::exception_ptr feature of C++11.
 # add_definitions(-DTBB_USE_CAPTURED_EXCEPTION=0)
 
-find_package(OpenSSL REQUIRED)
-find_package(CURL REQUIRED)
-find_package(Freetype REQUIRED)
+# On iOS we ship libslic3r as a static lib consumed by ODIN Studio. None of
+# OpenSSL / CURL / Freetype are used by slicer core — they're GUI + network
+# updater. Skip them on iOS and stub the `libcurl` INTERFACE so call-sites
+# that link against it don't break at generator time.
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    find_package(OpenSSL REQUIRED)
+    find_package(CURL REQUIRED)
+    find_package(Freetype REQUIRED)
 
+    add_library(libcurl INTERFACE)
+    target_link_libraries(libcurl INTERFACE CURL::libcurl)
 
-add_library(libcurl INTERFACE)
-target_link_libraries(libcurl INTERFACE CURL::libcurl)
-
-find_package(ZLIB REQUIRED)
-target_link_libraries(libcurl INTERFACE ZLIB::ZLIB)
+    find_package(ZLIB REQUIRED)
+    target_link_libraries(libcurl INTERFACE ZLIB::ZLIB)
+else()
+    find_package(ZLIB REQUIRED)    # ZLIB lives in the iOS SDK; needed by 3MF
+    add_library(libcurl INTERFACE) # stub
+endif()
 
 # Fixing curl's cmake config script bugs
 if (NOT WIN32)
@@ -685,16 +697,19 @@ if (NOT EXPAT_FOUND)
     set(EXPAT_LIBRARIES expat)
 endif ()
 
-find_package(PNG REQUIRED)
+# PNG / OpenGL / glfw3 are rendering-layer only — skipped on iOS.
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    find_package(PNG REQUIRED)
 
-set(OpenGL_GL_PREFERENCE "LEGACY")
-find_package(OpenGL REQUIRED)
+    set(OpenGL_GL_PREFERENCE "LEGACY")
+    find_package(OpenGL REQUIRED)
 
-if(APPLE AND CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
-    set(OPENGL_LIBRARIES "-framework OpenGL" CACHE STRING "OpenGL framework" FORCE)
-endif()
+    if(APPLE AND CMAKE_VERSION VERSION_GREATER_EQUAL "4.0")
+        set(OPENGL_LIBRARIES "-framework OpenGL" CACHE STRING "OpenGL framework" FORCE)
+    endif()
 
-find_package(glfw3 REQUIRED)
+    find_package(glfw3 REQUIRED)
+endif ()
 
 # Find the Cereal serialization library
 find_package(cereal REQUIRED)
@@ -755,14 +770,19 @@ if(SLIC3R_STATIC)
     set(USE_BLOSC TRUE)
 endif ()
 
-find_package(OpenVDB 5.0 COMPONENTS openvdb)
-if(OpenVDB_FOUND)
-    slic3r_remap_configs(IlmBase::Half RelWithDebInfo Release)
-    slic3r_remap_configs(Blosc::blosc RelWithDebInfo Release)
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    find_package(OpenVDB 5.0 COMPONENTS openvdb)
+    if(OpenVDB_FOUND)
+        slic3r_remap_configs(IlmBase::Half RelWithDebInfo Release)
+        slic3r_remap_configs(Blosc::blosc RelWithDebInfo Release)
+    else ()
+        message(FATAL_ERROR "OpenVDB could not be found with the bundled find module. "
+                       "You can try to specify the find module location of your "
+                       "OpenVDB installation with the OPENVDB_FIND_MODULE_PATH cache variable.")
+    endif ()
 else ()
-    message(FATAL_ERROR "OpenVDB could not be found with the bundled find module. "
-                   "You can try to specify the find module location of your "
-                   "OpenVDB installation with the OPENVDB_FIND_MODULE_PATH cache variable.")
+    # OpenVDB is SLA-only; we disable those code paths on iOS via SLIC3R_IOS=1.
+    set(OpenVDB_FOUND FALSE)
 endif ()
 
 find_path(SPNAV_INCLUDE_DIR spnav.h)

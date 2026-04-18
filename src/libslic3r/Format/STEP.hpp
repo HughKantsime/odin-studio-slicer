@@ -1,5 +1,31 @@
 #ifndef slic3r_Format_STEP_hpp_
 #define slic3r_Format_STEP_hpp_
+
+#if defined(SLIC3R_IOS)
+// iOS build doesn't link OpenCASCADE. Minimal stub so Model.hpp etc. include
+// cleanly; callers guard STEP paths at runtime via Model::load_step() returning
+// ImportStepError::Unsupported.
+
+#include <functional>
+
+namespace Slic3r {
+class TriangleMesh;
+class ModelObject;
+
+// Opaque forward decl so Model.hpp's Step& references resolve on iOS.
+class Step;
+
+typedef std::function<void(int, int, int, bool&)> ImportStepProgressFn;
+typedef std::function<void(bool)> StepIsUtf8Fn;
+
+enum class LoadStepFn { Ok, Cancel, Unsupported };
+
+// Stub entry points — real signatures preserved so callers compile. All
+// implementations return Unsupported.
+} // namespace Slic3r
+
+#else // full OCCT-backed STEP implementation (non-iOS)
+
 #include "XCAFDoc_DocumentTool.hxx"
 #include "XCAFApp_Application.hxx"
 #include "XCAFDoc_ShapeTool.hxx"
@@ -120,5 +146,7 @@ private:
 };
 
 }; // namespace Slic3r
+
+#endif // !SLIC3R_IOS
 
 #endif /* slic3r_Format_STEP_hpp_ */

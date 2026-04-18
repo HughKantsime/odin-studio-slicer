@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "libslic3r/ClipperUtils.hpp"
 #include "../libslic3r.h"
 #include "../Model.hpp"
@@ -400,3 +401,5 @@ bool load_svg(const char *path, Model *model, std::string &message)
     return true;
 }
 } // namespace Slic3r
+
+#endif // !SLIC3R_IOS

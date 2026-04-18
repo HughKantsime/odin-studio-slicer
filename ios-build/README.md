@@ -36,32 +36,47 @@ cmake --build build
 
 `/tmp/odin-slicer-ios-deps/` — all 8 cross-compiled deps merged into one prefix (237 MB, 28 static libs + 9 TBB dylibs + headers for Boost/Eigen/CGAL/NLopt/Qhull/GMP/MPFR). Usable directly via `-DCMAKE_PREFIX_PATH=/tmp/odin-slicer-ios-deps -DCMAKE_FIND_ROOT_PATH=/tmp/odin-slicer-ios-deps -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH`.
 
-## The real wall (Stage 2b start)
+## Upstream patches landed (this fork)
 
-libslic3r/CMakeLists.txt hard-requires two more deps that OrcaSlicer treats as non-optional, used only by GUI-adjacent paths:
+All patches gated by `if (CMAKE_SYSTEM_NAME STREQUAL "iOS")` or `#if defined(SLIC3R_IOS)`:
 
-- **OpenCV** — `find_package(OpenCV REQUIRED core)` at libslic3r/CMakeLists.txt:499. Used for camera calibration + image inspection. Cross-compiling OpenCV (3.4 or 4.x) for iOS ARM64 is well-documented but non-trivial (~1–2 sessions).
-- **OpenCASCADE** — STEP file import, required. Massive library. Potentially stubbable if we gate STEP import on a compile-flag.
+- **Top-level CMakeLists.txt**: made OpenSSL/CURL/Freetype/PNG/OpenGL/glfw3/OpenVDB optional on iOS; stubbed `libcurl` INTERFACE target; added `IS_CROSS_COMPILE=TRUE` when `CMAKE_SYSTEM_NAME=iOS`.
+- **src/libslic3r/CMakeLists.txt**: made OpenCV/OpenCASCADE/JPEG/draco optional on iOS; stubbed `libslic3r_cgal` as INTERFACE target (Boost 1.84 + CGAL 5.6.1 iterator-`.base()` mismatch in graph/iterator.h); split `target_link_libraries(libslic3r)` into iOS/other branches dropping opencv_world/OCCT/draco/JPEG/PNG/OpenSSL/Freetype.
+- **src/libslic3r/Utils.hpp**, **src/libslic3r/Format/bbs_3mf.cpp**: swapped `#include <openssl/md5.h>` → `CommonCrypto` with `COMMON_DIGEST_FOR_OPENSSL` shim (API-compat for MD5_CTX/Init/Update/Final).
+- **src/libslic3r/Format/STEP.hpp**: iOS-stub body with forward-decl `class Step;` + typedefs so callers in Model.hpp compile.
+- **src/libslic3r/Format/{STEP,svg,DRC}.cpp**: entire TU wrapped in `#if !defined(SLIC3R_IOS)`.
+- **src/libslic3r/EdgeGrid.cpp**: gated `#include <png.h>` (header never actually used in body).
+- **src/libslic3r/GCode/Thumbnails.cpp**: `compress_thumbnail_jpg()` returns `nullptr` on iOS; jpeglib headers gated.
 
-These two need either:
-1. Patching `src/libslic3r/CMakeLists.txt` to make them `optional` + guarding their callers with `#ifdef SLIC3R_IOS_NO_OPENCV`/etc. — surgical but touches upstream code.
-2. Cross-compile them too — ~2 more sessions.
+## Configure + build status
 
-Option 1 is the pragmatic path for a first iOS slice-able binary. It trades off texture inspection + STEP import, both of which ODIN Studio can live without for v1.
+Configure against `/tmp/odin-slicer-ios-deps` prefix: **GREEN**.
 
-## Configure-pass result (verification)
+Build progresses to ~34% before hitting the remaining wall in libslic3r core:
 
-`cmake -S . -B build-libslic3r-ios -DCMAKE_TOOLCHAIN_FILE=cmake/iOS.cmake -DCMAKE_PREFIX_PATH=/tmp/odin-slicer-ios-deps -DCMAKE_FIND_ROOT_PATH=/tmp/odin-slicer-ios-deps -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH -DSLIC3R_GUI=OFF -DSLIC3R_BUILD_TESTS=OFF -DSLIC3R_STATIC=ON`
+- **Model.cpp** uses `Slic3r::Step` as value-type in several places (not just references) — needs either a non-forward-declared stub Step class with the right shape, OR all Model::load_step paths ifdef'd. Roughly 5–10 call sites.
+- **ObjColorUtils.hpp** includes `<opencv2/opencv.hpp>` — uses `cv::Mat` inline. Either cross-compile OpenCV core (single-session undertaking) or guard the two fn signatures that use it.
 
-resolves through:
-- Boost ✓ (found 1.84 via BoostConfig.cmake)
-- TBB ✓
-- Threads ✓
-- Iconv ✓ (SDK)
-- ZLIB ✓ (SDK)
-- Fails at: OpenSSL at top-level (used by CURL in desktop networking — needs iOS guard in top-level CMakeLists.txt).
+Neither is conceptual; both are mechanical editing.
 
-The top-level CMakeLists's `find_package(OpenSSL REQUIRED)` at line 621 also needs the same `optional` treatment. All three (OpenSSL/CURL/Freetype) are used exclusively by the GUI + preset updater, never by slicer core, so patches guarding them behind `if(NOT SLIC3R_IOS)` are clean.
+## Resume command
+
+```bash
+# Deps must already be staged at /tmp/odin-slicer-ios-deps (see sections above).
+cd <fork>
+cmake -S . -B build-libslic3r-ios \
+    -DCMAKE_TOOLCHAIN_FILE=cmake/iOS.cmake \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0 \
+    -DCMAKE_FIND_ROOT_PATH=/tmp/odin-slicer-ios-deps \
+    -DCMAKE_PREFIX_PATH=/tmp/odin-slicer-ios-deps \
+    -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_MACOSX_BUNDLE=OFF \
+    -DSLIC3R_GUI=OFF -DSLIC3R_BUILD_TESTS=OFF -DSLIC3R_STATIC=ON \
+    -DSLIC3R_ENC_CHECK=OFF
+cmake --build build-libslic3r-ios --target libslic3r -- -j8
+```
+
 
 
 ## Remaining deps (priority order)

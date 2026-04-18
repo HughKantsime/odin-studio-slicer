@@ -15,7 +15,15 @@
 #include <boost/date_time.hpp>
 #include "boost/date_time/posix_time/ptime.hpp"
 
-#include <openssl/md5.h>
+// OpenSSL MD5 is not linked on iOS — Apple's CommonCrypto provides the same API.
+// The MD5 ctx layout differs slightly but libslic3r only uses it for opaque
+// checksumming, so the typedef-alias works.
+#if defined(SLIC3R_IOS) || defined(__APPLE__) && !__has_include(<openssl/md5.h>)
+  #define COMMON_DIGEST_FOR_OPENSSL
+  #include <CommonCrypto/CommonDigest.h>
+#else
+  #include <openssl/md5.h>
+#endif
 
 #include "libslic3r.h"
 

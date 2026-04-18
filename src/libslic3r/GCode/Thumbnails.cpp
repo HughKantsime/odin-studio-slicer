@@ -4,8 +4,10 @@
 
 #include <boost/algorithm/string/case_conv.hpp>
 #include <qoi/qoi.h>
+#if !defined(SLIC3R_IOS)
 #include <jpeglib.h>
 #include <jerror.h>
+#endif
 #include <vector>
 #include <boost/algorithm/string.hpp>
 
@@ -52,6 +54,13 @@ std::unique_ptr<CompressedImageBuffer> compress_thumbnail_png(const ThumbnailDat
 
 std::unique_ptr<CompressedImageBuffer> compress_thumbnail_jpg(const ThumbnailData& data)
 {
+#if defined(SLIC3R_IOS)
+    // iOS build doesn't link libjpeg. JPG thumbnails in G-code are an
+    // optional OrcaSlicer feature — returning nullptr is acceptable; callers
+    // fall back to PNG / QOI.
+    (void)data;
+    return nullptr;
+#else
     // Take vector of RGBA pixels and flip the image vertically
     std::vector<unsigned char> rgba_pixels(data.pixels.size());
     const unsigned int row_size = data.width * 4;
@@ -96,6 +105,7 @@ std::unique_ptr<CompressedImageBuffer> compress_thumbnail_jpg(const ThumbnailDat
     out->size = size_t(compressed_data_size);
     ::memcpy(out->data, (const void*)compressed_data.data(), out->size);
     return out;
+#endif
 }
 
 std::unique_ptr<CompressedImageBuffer> compress_thumbnail_qoi(const ThumbnailData &data)

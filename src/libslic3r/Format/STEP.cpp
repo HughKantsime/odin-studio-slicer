@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "../libslic3r.h"
 #include "../Model.hpp"
 #include "../TriangleMesh.hpp"
@@ -746,3 +747,5 @@ unsigned int Step::get_triangle_num_tbb(double linear_defletion, double angle_de
 }
 
 }; // namespace Slic3r
+
+#endif // !SLIC3R_IOS

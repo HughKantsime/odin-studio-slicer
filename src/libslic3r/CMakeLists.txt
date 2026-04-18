@@ -496,10 +496,19 @@ set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE ON CACHE BOOL "" FORCE)
 cmake_policy(PUSH)
 cmake_policy(SET CMP0011 NEW)
 find_package(CGAL REQUIRED)
-find_package(OpenCV REQUIRED core)
+# OpenCV is only used by calibration/texture paths — SLIC3R_IOS=1 kills them.
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    find_package(OpenCV REQUIRED core)
+endif ()
 cmake_policy(POP)
 
-add_library(libslic3r_cgal STATIC 
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # libslic3r_cgal hits a Boost 1.84 + CGAL 5.6.1 iterator::base() mismatch
+    # in graph/iterator.h. Downgrade not worth the pain for v1 — ship an empty
+    # stub target so libslic3r's link line resolves.
+    add_library(libslic3r_cgal INTERFACE)
+else ()
+add_library(libslic3r_cgal STATIC
     CutSurface.hpp CutSurface.cpp
     IntersectionPoints.hpp IntersectionPoints.cpp
     MeshBoolean.hpp MeshBoolean.cpp
@@ -529,6 +538,7 @@ target_link_libraries(libslic3r_cgal PRIVATE ${_cgal_tgt} eigen admesh libigl mc
 if (MSVC AND "${CMAKE_SIZEOF_VOID_P}" STREQUAL "4") # 32 bit MSVC workaround
     target_compile_definitions(libslic3r_cgal PRIVATE CGAL_DO_NOT_USE_MPZF)
 endif ()
+endif () # CMAKE_SYSTEM_NAME iOS
 
 encoding_check(libslic3r)
 
@@ -536,13 +546,15 @@ target_compile_definitions(libslic3r PUBLIC -DUSE_TBB -DTBB_USE_CAPTURED_EXCEPTI
 target_include_directories(libslic3r PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(libslic3r SYSTEM PUBLIC ${EXPAT_INCLUDE_DIRS})
 
-# Find the OCCT and related libraries
-set(OpenCASCADE_DIR "${CMAKE_PREFIX_PATH}/lib/cmake/occt")
-find_package(OpenCASCADE REQUIRED)
-target_include_directories(libslic3r SYSTEM PUBLIC ${OpenCASCADE_INCLUDE_DIR})
+# Find the OCCT and related libraries (STEP import). Skipped on iOS in v1.
+if (NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(OpenCASCADE_DIR "${CMAKE_PREFIX_PATH}/lib/cmake/occt")
+    find_package(OpenCASCADE REQUIRED)
+    target_include_directories(libslic3r SYSTEM PUBLIC ${OpenCASCADE_INCLUDE_DIR})
 
-find_package(JPEG REQUIRED)
-find_package(draco REQUIRED)
+    find_package(JPEG REQUIRED)
+    find_package(draco REQUIRED)
+endif ()
 
 set(OCCT_LIBS
     TKXDESTEP
@@ -573,45 +585,75 @@ set(OCCT_LIBS
     TKernel
 )
 
-target_link_libraries(libslic3r
-    PUBLIC
-        admesh
-        libigl
-        libnest2d
-        miniz
-        opencv_world
-    PRIVATE
-        ${CMAKE_DL_LIBS}
-        ${EXPAT_LIBRARIES}
-        ${OCCT_LIBS}
-        boost_libs
-        cereal::cereal
-        clipper
-        Clipper2
-        draco::draco
-        eigen
-        glu-libtess
-        JPEG::JPEG
-        libslic3r_cgal
-        mcut
-        noise::noise
-        PNG::PNG
-        qhull
-        qoi
-        semver
-        TBB::tbb
-        TBB::tbbmalloc
-        ZLIB::ZLIB
-        OpenSSL::Crypto
-    )
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # iOS: drop OpenCV, OCCT, draco, JPEG, PNG, OpenSSL, Freetype — all unused
+    # by slicer core. SLIC3R_IOS=1 macro already dropped in iOS toolchain.
+    target_link_libraries(libslic3r
+        PUBLIC
+            admesh
+            libigl
+            libnest2d
+            miniz
+        PRIVATE
+            ${CMAKE_DL_LIBS}
+            ${EXPAT_LIBRARIES}
+            boost_libs
+            cereal::cereal
+            clipper
+            Clipper2
+            eigen
+            glu-libtess
+            libslic3r_cgal
+            mcut
+            noise::noise
+            qhull
+            qoi
+            semver
+            TBB::tbb
+            TBB::tbbmalloc
+            ZLIB::ZLIB
+        )
+else ()
+    target_link_libraries(libslic3r
+        PUBLIC
+            admesh
+            libigl
+            libnest2d
+            miniz
+            opencv_world
+        PRIVATE
+            ${CMAKE_DL_LIBS}
+            ${EXPAT_LIBRARIES}
+            ${OCCT_LIBS}
+            boost_libs
+            cereal::cereal
+            clipper
+            Clipper2
+            draco::draco
+            eigen
+            glu-libtess
+            JPEG::JPEG
+            libslic3r_cgal
+            mcut
+            noise::noise
+            PNG::PNG
+            qhull
+            qoi
+            semver
+            TBB::tbb
+            TBB::tbbmalloc
+            ZLIB::ZLIB
+            OpenSSL::Crypto
+        )
 
-if(NOT WIN32)
-    # Link freetype for OCCT dependency (CAD operations need font rendering)
-    target_link_libraries(libslic3r PRIVATE ${FREETYPE_LIBRARIES})
-    if (NOT APPLE)
-        target_link_libraries(libslic3r PRIVATE fontconfig)
+    if(NOT WIN32)
+        # Link freetype for OCCT dependency (CAD operations need font rendering)
+        target_link_libraries(libslic3r PRIVATE ${FREETYPE_LIBRARIES})
+        if (NOT APPLE)
+            target_link_libraries(libslic3r PRIVATE fontconfig)
+        endif()
     endif()
-endif()
+endif ()
 
 if (APPLE)
     find_library(FOUNDATION Foundation REQUIRED)

@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include <string>
 #include <utility>
 #include <cstring>
@@ -164,3 +165,4 @@ bool store_drc(const char *path, Model *model, int bits, int speed)
 }
 
 }; // namespace Slic3r
+#endif // !SLIC3R_IOS
