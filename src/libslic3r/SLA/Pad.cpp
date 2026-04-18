@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include <libslic3r/SLA/Pad.hpp>
 #include <libslic3r/SLA/SpatIndex.hpp>
 #include <libslic3r/SLA/BoostAdapter.hpp>
@@ -536,3 +537,5 @@ std::string PadConfig::validate() const
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

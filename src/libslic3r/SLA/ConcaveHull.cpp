@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include <libslic3r/SLA/ConcaveHull.hpp>
 #include <libslic3r/SLA/SpatIndex.hpp>
 
@@ -144,3 +145,5 @@ Polygons offset_waffle_style(const ConcaveHull &hull, coord_t delta)
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

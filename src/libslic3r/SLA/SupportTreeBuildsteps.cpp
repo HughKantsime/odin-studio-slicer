@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include <libslic3r/SLA/SupportTreeBuildsteps.hpp>
 
 #include <libslic3r/SLA/SpatIndex.hpp>
@@ -1275,3 +1276,5 @@ void SupportTreeBuildsteps::interconnect_pillars()
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

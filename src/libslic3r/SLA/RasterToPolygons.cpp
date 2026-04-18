@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "RasterToPolygons.hpp"
 
 #include "AGGRaster.hpp"
@@ -87,3 +88,5 @@ ExPolygons raster_to_polygons(const RasterGrayscaleAA &rst, Vec2i32 windowsize)
 }
 
 }} // namespace Slic3r
+
+#endif // !SLIC3R_IOS

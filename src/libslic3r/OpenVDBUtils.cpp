@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #define NOMINMAX
 #include "OpenVDBUtils.hpp"
 
@@ -134,3 +135,5 @@ openvdb::FloatGrid::Ptr redistance_grid(const openvdb::FloatGrid &grid,
 }
 
 } // namespace Slic3r
+
+#endif // !SLIC3R_IOS

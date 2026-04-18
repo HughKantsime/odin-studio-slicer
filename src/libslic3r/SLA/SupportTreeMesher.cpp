@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "SupportTreeMesher.hpp"
 
 namespace Slic3r { namespace sla {
@@ -268,3 +269,5 @@ indexed_triangle_set halfcone(double       baseheight,
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

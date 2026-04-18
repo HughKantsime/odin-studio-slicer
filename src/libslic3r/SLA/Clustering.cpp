@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "Clustering.hpp"
 #include "boost/geometry/index/rtree.hpp"
 
@@ -150,3 +151,5 @@ ClusteredPoints cluster(const Eigen::MatrixXd& pts, double dist, unsigned max_po
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

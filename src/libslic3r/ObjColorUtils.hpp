@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #pragma once
 #include <iostream>
 #include <ctime>
@@ -266,3 +267,4 @@ bool obj_color_deal_algo(std::vector<Slic3r::RGBA> &input_colors,
                          std::vector<int>&            cluster_labels_from_algo,
                          char &                     cluster_number,
                          int                        max_cluster);
+#endif // !SLIC3R_IOS

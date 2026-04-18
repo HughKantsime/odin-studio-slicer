@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "IndexedMesh.hpp"
 #include "Concurrency.hpp"
 
@@ -454,3 +455,5 @@ PointSet normals(const PointSet& points,
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 //#include "igl/random_points_on_mesh.h"
 //#include "igl/AABB.h"
 
@@ -666,3 +667,5 @@ void SupportPointGenerator::output_expolygons(const ExPolygons& expolys, const s
 
 } // namespace sla
 } // namespace Slic3r
+
+#endif // !SLIC3R_IOS

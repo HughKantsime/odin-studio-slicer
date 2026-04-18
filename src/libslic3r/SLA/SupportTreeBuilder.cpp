@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #define NOMINMAX
 
 #include <libslic3r/SLA/SupportTreeBuilder.hpp>
@@ -223,3 +224,5 @@ const indexed_triangle_set &SupportTreeBuilder::retrieve_mesh(MeshType meshtype)
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

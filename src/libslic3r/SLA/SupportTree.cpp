@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 /**
  * In this file we will implement the automatic SLA support tree generation.
  *
@@ -96,3 +97,5 @@ SupportTree::UPtr SupportTree::create(const SupportableMesh &sm,
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

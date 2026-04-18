@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #ifndef OPENVDBUTILS_HPP
 #define OPENVDBUTILS_HPP
 
@@ -46,3 +47,5 @@ openvdb::FloatGrid::Ptr redistance_grid(const openvdb::FloatGrid &grid,
 } // namespace Slic3r
 
 #endif // OPENVDBUTILS_HPP
+
+#endif // !SLIC3R_IOS

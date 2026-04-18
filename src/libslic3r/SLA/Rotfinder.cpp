@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include <limits>
 
 #include <libslic3r/SLA/Rotfinder.hpp>
@@ -474,3 +475,5 @@ Vec2d find_min_z_height_rotation(const ModelObject &mo,
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

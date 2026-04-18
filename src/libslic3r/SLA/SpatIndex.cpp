@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "SpatIndex.hpp"
 
 // for concave hull merging decisions
@@ -159,3 +160,5 @@ void BoxIndex::foreach(std::function<void (const BoxIndexEl &)> fn)
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

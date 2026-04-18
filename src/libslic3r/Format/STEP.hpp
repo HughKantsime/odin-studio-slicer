@@ -8,20 +8,46 @@
 
 #include <functional>
 
+#include <string>
+#include <atomic>
+
 namespace Slic3r {
 class TriangleMesh;
 class ModelObject;
-
-// Opaque forward decl so Model.hpp's Step& references resolve on iOS.
-class Step;
+class Model;
 
 typedef std::function<void(int, int, int, bool&)> ImportStepProgressFn;
 typedef std::function<void(bool)> StepIsUtf8Fn;
 
-enum class LoadStepFn { Ok, Cancel, Unsupported };
+// Real-shape Step stub. Every method is a no-op returning MESH_ERROR so that
+// Model::load_step() callers compile and fail cleanly at runtime.
+class Step {
+public:
+    enum class Step_Status {
+        LOAD_SUCCESS,
+        LOAD_ERROR,
+        CANCEL,
+        MESH_SUCCESS,
+        MESH_ERROR
+    };
+    Step(const std::string& /*path*/, ImportStepProgressFn = nullptr, StepIsUtf8Fn = nullptr) {}
+    ~Step() = default;
+    Step_Status load() { return Step_Status::LOAD_ERROR; }
+    unsigned int get_triangle_num(double, double) { return 0; }
+    unsigned int get_triangle_num_tbb(double, double) { return 0; }
+    void clean_mesh_data() {}
+    Step_Status mesh(Model*, bool&, bool, double = 0.003, double = 0.5) { return Step_Status::MESH_ERROR; }
+    std::atomic<bool> m_stop_mesh{false};
+    void update_process(int, int, int, bool&) {}
+};
 
-// Stub entry points — real signatures preserved so callers compile. All
-// implementations return Unsupported.
+// Back-compat bool load_step() signature used from Model.cpp.
+inline bool load_step(const char*, Model*, bool&,
+                      double = 0.003, double = 0.5, bool = false,
+                      ImportStepProgressFn = nullptr,
+                      StepIsUtf8Fn = nullptr,
+                      long = -1) { return false; }
+
 } // namespace Slic3r
 
 #else // full OCCT-backed STEP implementation (non-iOS)

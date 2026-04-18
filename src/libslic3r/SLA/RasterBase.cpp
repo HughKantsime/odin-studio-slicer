@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #ifndef SLARASTER_CPP
 #define SLARASTER_CPP
 
@@ -84,3 +85,5 @@ std::unique_ptr<RasterBase> create_raster_grayscale_aa(
 } // namespace Slic3r
 
 #endif // SLARASTER_CPP
+
+#endif // !SLIC3R_IOS

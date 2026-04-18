@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "PNGReadWrite.hpp"
 
 #include <memory>
@@ -355,3 +356,5 @@ bool write_gray_to_file_scaled(const std::string &file_name_utf8, size_t width, 
 }
 
 }} // namespace Slic3r::png
+
+#endif // !SLIC3R_IOS

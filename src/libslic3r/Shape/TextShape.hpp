@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #ifndef slic3r_Text_Shape_hpp_
 #define slic3r_Text_Shape_hpp_
 
@@ -20,3 +21,5 @@ std::map<std::string, std::string> get_occt_fonts_maps();
 }; // namespace Slic3r
 
 #endif // slic3r_Text_Shape_hpp_
+
+#endif // !SLIC3R_IOS

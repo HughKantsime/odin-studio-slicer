@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "../libslic3r.h"
 #include "../Model.hpp"
 #include "../TriangleMesh.hpp"
@@ -270,3 +271,5 @@ void load_text_shape(const char*text, const char* font, const float text_height,
 }
 
 }; // namespace Slic3r
+
+#endif // !SLIC3R_IOS

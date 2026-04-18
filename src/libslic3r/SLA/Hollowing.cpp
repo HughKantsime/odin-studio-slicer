@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include <functional>
 #include <optional>
 
@@ -561,3 +562,5 @@ void remove_inside_triangles(TriangleMesh &mesh, const Interior &interior,
 }
 
 }} // namespace Slic3r::sla
+
+#endif // !SLIC3R_IOS

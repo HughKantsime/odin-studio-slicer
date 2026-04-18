@@ -1,3 +1,4 @@
+#if !defined(SLIC3R_IOS)
 #include "ObjColorUtils.hpp"
 
 bool obj_color_deal_algo(std::vector<Slic3r::RGBA> & input_colors,
@@ -13,3 +14,4 @@ bool obj_color_deal_algo(std::vector<Slic3r::RGBA> & input_colors,
     }
     return true;
 }
+#endif // !SLIC3R_IOS
