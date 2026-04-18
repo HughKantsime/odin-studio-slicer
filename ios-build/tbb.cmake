@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.24)
+project(tbb_ios LANGUAGES C CXX)
+include(ExternalProject)
+ExternalProject_Add(dep_TBB
+    URL https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2021.5.0.zip
+    URL_HASH SHA256=83ea786c964a384dd72534f9854b419716f412f9d43c0be88d41874763e7bb47
+    CMAKE_ARGS
+        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_SOURCE_DIR}/../cmake/iOS.cmake
+        -DCMAKE_OSX_DEPLOYMENT_TARGET=17.0
+        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
+        -DTBB_BUILD_SHARED=OFF
+        -DTBB_BUILD_TESTS=OFF
+        -DTBB_TEST=OFF
+        -DTBB_EXAMPLES=OFF
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        -DCMAKE_BUILD_TYPE=Release
+)

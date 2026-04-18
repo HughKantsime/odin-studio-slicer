@@ -46,3 +46,9 @@ test.js
 internal_docs/
 *.flatpak
 /flatpak-repo/
+# iOS cross-compile build scratch
+build-ios-stub/
+build-tbb-ios/
+build-boost-ios/
+build-deps-ios/
+build-ios/
