@@ -25,6 +25,9 @@ cmake --build build
 |-----|--------|--------|------------|
 | TBB 2021.5 | tbb.cmake | `libtbb.12.5.dylib`, `libtbbmalloc.2.5.dylib` | Mach-O arm64, `LC_BUILD_VERSION platform 2` (iOS) ✓ |
 | Boost 1.84 | boost.cmake | 22 `.a` files (system, filesystem, thread, log, locale, regex, chrono, atomic, date_time, iostreams, program_options, nowide, context, coroutine, …) | Mach-O arm64, platform 2 ✓ |
+| Eigen 3.4.0 | eigen.cmake | Headers-only install under `include/eigen3/Eigen/` | N/A |
+| NLopt 2.5.0 | nlopt.cmake | `libnlopt.a` | Mach-O arm64, platform 2 ✓ |
+| Qhull 8.0.2 | qhull.cmake + prepend_no_bundle.sh | `libqhullstatic{,_r}.a`, `libqhullcpp.a` | Mach-O arm64 (patched CMAKE_MACOSX_BUNDLE=OFF) ✓ |
 
 ## Remaining deps (priority order)
 
