@@ -1,0 +1,51 @@
+cmake_minimum_required(VERSION 3.24)
+project(odin_slicer LANGUAGES C CXX)
+
+# Use via: cmake -DCMAKE_TOOLCHAIN_FILE=cmake/iOS.cmake -S . -B build-ios
+#                -DCMAKE_PROJECT_FILE=CMakeLists.ios.txt ...
+# (CMake 3.24+ required for nested CMAKE_PROJECT_FILE.)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# ---------------------------------------------------------------------------
+# Stage 1: stub build — produces `odin_slicer_stub.a` that implements the
+# C API with `NOT_AVAILABLE` returns. This is what ships in ODIN Studio today.
+# Stage 2 (separate track): drop in the real libslic3r dep graph and replace
+# the source in this target.
+# ---------------------------------------------------------------------------
+
+add_library(odin_slicer_stub STATIC
+    src/odin_slicer_api.cpp
+)
+
+target_include_directories(odin_slicer_stub PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+# Explicit flag to satisfy the iOS toolchain's stripped sdk — no Foundation
+# dependency at this layer.
+set_target_properties(odin_slicer_stub PROPERTIES
+    OUTPUT_NAME odin_slicer_stub
+    XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+)
+
+message(STATUS "odin_slicer: building stub (libslic3r integration = pending)")
+
+# ---------------------------------------------------------------------------
+# Stage 2 (commented — to be enabled when libslic3r iOS build lands):
+#
+#   add_subdirectory(src/libslic3r)
+#   add_library(odin_slicer STATIC
+#       src/odin_slicer_api_real.cpp
+#   )
+#   target_link_libraries(odin_slicer PUBLIC libslic3r)
+#
+# The real api_real.cpp implementation would:
+# 1. Parse profile_json via nlohmann::json.
+# 2. Construct a Slic3r::DynamicPrintConfig from the flattened profile.
+# 3. Call Slic3r::Model::read_from_file() on the mesh.
+# 4. Run Slic3r::Print::process() with progress callbacks mapped to our C API.
+# 5. Write G-code via Slic3r::GCode::output.
+# ---------------------------------------------------------------------------
