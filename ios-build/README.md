@@ -28,6 +28,8 @@ cmake --build build
 | Eigen 3.4.0 | eigen.cmake | Headers-only install under `include/eigen3/Eigen/` | N/A |
 | NLopt 2.5.0 | nlopt.cmake | `libnlopt.a` | Mach-O arm64, platform 2 ✓ |
 | Qhull 8.0.2 | qhull.cmake + prepend_no_bundle.sh | `libqhullstatic{,_r}.a`, `libqhullcpp.a` | Mach-O arm64 (patched CMAKE_MACOSX_BUNDLE=OFF) ✓ |
+| GMP 6.3.0 | gmp.sh (autoconf, `--host=aarch64-apple-darwin`, `--disable-assembly`) | `libgmp.a` (1.2 MB) | Mach-O arm64, platform 2 ✓ |
+| MPFR 4.2.1 | mpfr.sh (autoconf, `--with-gmp=$GMP_PREFIX`) | `libmpfr.a` (1.1 MB) | Mach-O arm64, platform 2 ✓ |
 
 ## Remaining deps (priority order)
 
