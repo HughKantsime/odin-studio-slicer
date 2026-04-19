@@ -21,10 +21,17 @@ run_cmake_driver() {
     DRIVER="$1"
     NAME="$2"
     WORK="/tmp/build-${NAME}-ios-sim"
+    rm -rf "$WORK"
     mkdir -p "$WORK"
     cp "$SLICER_ROOT/ios-build/${DRIVER}" "$WORK/CMakeLists.txt"
-    # Rewrite relative toolchain path from the driver (which assumes the
-    # driver lives under ios-build/) so our scratch dir can find the file.
+    # Qhull driver shells out to prepend_no_bundle.sh; copy it alongside.
+    if [ -f "$SLICER_ROOT/ios-build/prepend_no_bundle.sh" ]; then
+        cp "$SLICER_ROOT/ios-build/prepend_no_bundle.sh" "$WORK/"
+        chmod +x "$WORK/prepend_no_bundle.sh"
+    fi
+    # Rewrite the driver's internal toolchain-path reference to the simulator
+    # toolchain. Drivers use ExternalProject_Add, which doesn't inherit our
+    # outer toolchain — the path is baked into the nested CMAKE_ARGS.
     sed -i.bak "s|\${CMAKE_SOURCE_DIR}/../cmake/iOS.cmake|${TOOLCHAIN}|" "$WORK/CMakeLists.txt"
     (
         cd "$WORK" && \
@@ -34,6 +41,15 @@ run_cmake_driver() {
             -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN" && \
         cmake --build build -- -j4
     )
+    # Stage this dep's ExternalProject install tree into the combined prefix.
+    # ExternalProject defaults to <build>/<target>-prefix/{lib,include,...}.
+    for pre in "$WORK"/build/dep_*-prefix; do
+        # `[ -d X ] && rsync ...` dies under `set -e` when the test is false.
+        # Use explicit if/then so a missing subdir is a no-op, not a failure.
+        if [ -d "$pre/lib" ];     then rsync -a "$pre/lib/"     "$PREFIX/lib/";     fi
+        if [ -d "$pre/include" ]; then rsync -a "$pre/include/" "$PREFIX/include/"; fi
+        if [ -d "$pre/share" ];   then rsync -a "$pre/share/"   "$PREFIX/share/";   fi
+    done
 }
 
 echo "[1/8] TBB (simulator, static)"
@@ -59,5 +75,11 @@ sh "$SLICER_ROOT/ios-build/mpfr-sim.sh" /tmp/mpfr-ios-sim-build "$PREFIX" "$PREF
 
 echo "[8/8] CGAL 5.6.1 (headers, sim)"
 run_cmake_driver cgal.cmake cgal
+
+echo "[extra] Cereal (headers)"
+run_cmake_driver cereal.cmake cereal
+
+echo "[extra] libnoise (simulator)"
+run_cmake_driver libnoise.cmake libnoise
 
 echo "All simulator deps installed at $PREFIX"
