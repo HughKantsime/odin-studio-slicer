@@ -14,7 +14,14 @@ target_include_directories(clipper SYSTEM
         ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_link_libraries(clipper 
-    PUBLIC eigen
-    PRIVATE TBB::tbb TBB::tbbmalloc
-)
+if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    target_link_libraries(clipper
+        PUBLIC eigen
+        PRIVATE TBB::tbb
+    )
+else ()
+    target_link_libraries(clipper
+        PUBLIC eigen
+        PRIVATE TBB::tbb TBB::tbbmalloc
+    )
+endif ()

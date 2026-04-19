@@ -503,10 +503,21 @@ endif ()
 cmake_policy(POP)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    # libslic3r_cgal hits a Boost 1.84 + CGAL 5.6.1 iterator::base() mismatch
-    # in graph/iterator.h. Downgrade not worth the pain for v1 — ship an empty
-    # stub target so libslic3r's link line resolves.
-    add_library(libslic3r_cgal INTERFACE)
+    # Pared-down libslic3r_cgal on iOS. Boost 1.84 + CGAL 5.6.1 iterator::base()
+    # mismatch blocks the full set (CutSurface/MeshBoolean/TryCatchSignal). Keep
+    # only Triangulation + IntersectionPoints — these are called from core
+    # (WipeTower, Emboss, Model) and work with CGAL header-only primitives.
+    add_library(libslic3r_cgal STATIC
+        IntersectionPoints.hpp IntersectionPoints.cpp
+        Triangulation.hpp Triangulation.cpp
+    )
+    target_include_directories(libslic3r_cgal PRIVATE
+        ${CMAKE_CURRENT_BINARY_DIR}
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/deps_src
+    )
+    target_link_libraries(libslic3r_cgal PRIVATE boost_libs CGAL::CGAL eigen semver TBB::tbb libigl admesh)
+    target_compile_definitions(libslic3r_cgal PRIVATE SLIC3R_IOS=1)
 else ()
 add_library(libslic3r_cgal STATIC
     CutSurface.hpp CutSurface.cpp
@@ -610,7 +621,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "iOS")
             qoi
             semver
             TBB::tbb
-            TBB::tbbmalloc
+            # TBB::tbbmalloc omitted on iOS: ships as dylib, symbols resolved
+            # via system malloc. Real impact: allocator locality in concurrent
+            # mesh ops falls back to libc — acceptable for v1.
             ZLIB::ZLIB
         )
 else ()
