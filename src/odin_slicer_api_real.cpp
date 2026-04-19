@@ -190,7 +190,13 @@ int odin_slicer_load_profile_json(odin_slicer_handle_t* h, const char* json) {
         nlohmann::json merged = nlohmann::json::object();
         auto consume = [&](const nlohmann::json& src) {
             if (!src.is_object()) return;
-            for (auto it = src.begin(); it != src.end(); ++it) {
+            // OrcaSlicer profile objects wrap libslic3r keys under a nested
+            // `raw` sub-object while the outer dict holds metadata (type,
+            // name, inherits, slug, …). Prefer `raw` when present; the outer
+            // meta keys aren't libslic3r options.
+            const nlohmann::json& body = (src.contains("raw") && src["raw"].is_object())
+                ? src["raw"] : src;
+            for (auto it = body.begin(); it != body.end(); ++it) {
                 merged[it.key()] = it.value();
             }
         };
