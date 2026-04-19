@@ -1,9 +1,10 @@
 // odin_slicer_api.cpp — stub implementation of odin_slicer.h
 //
 // This stub returns ODIN_SLICER_ERR_NOT_AVAILABLE for every op except
-// odin_slicer_is_linked() which returns 0 (i.e. "stub"). Once libslic3r is
-// actually linked in via CMakeLists.ios.txt, swap this translation unit out
-// for one that drives Slic3r::Print and friends.
+// odin_slicer_is_linked() which returns 0 (i.e. "stub"). The real build
+// target (odin_slicer_real, see ios-build/api_real.cmake) swaps this TU
+// out with src/odin_slicer_api_real.cpp; a given libodin_slicer.a contains
+// exactly one of the two, controlled at CMake-target level.
 //
 // License: AGPL-3.0 (inherits from OrcaSlicer / libslic3r).
 
@@ -62,6 +63,24 @@ void odin_slicer_end(odin_slicer_handle_t* h) {
 
 int odin_slicer_is_linked(void) {
     return 0;
+}
+
+int odin_slicer_add_mesh(odin_slicer_handle_t* h,
+                         const char* /*mesh_path*/,
+                         const float* /*transform_row_major16*/) {
+    if (!h) return ODIN_SLICER_ERR_ARG;
+    h->last_error = "real libslic3r is not linked in this build";
+    return ODIN_SLICER_ERR_NOT_AVAILABLE;
+}
+
+int odin_slicer_get_stats(odin_slicer_handle_t* h, odin_slicer_stats_t* /*out*/) {
+    if (!h) return ODIN_SLICER_ERR_ARG;
+    h->last_error = "real libslic3r is not linked in this build";
+    return ODIN_SLICER_ERR_NOT_AVAILABLE;
+}
+
+const char* odin_slicer_fork_commit(void) {
+    return "unknown";
 }
 
 } // extern "C"

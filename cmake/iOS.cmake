@@ -6,12 +6,13 @@
 #         -S . -B build-ios
 #
 # Notes:
-# - iOS forbids fork()/exec(). libslic3r doesn't actually call those directly
+# - iOS forbids fork()/exec(). libslic3r doesn't actually call those directly,
 #   but some deps (notably CGAL test harnesses, CURL's default config) do.
-#   We compile with -DSLIC3R_NO_FORK to gate the offenders where the fork
-#   patches live (see src/odin_slicer_ios_compat.cpp).
+#   The iOS build compiles with SLIC3R_NO_FORK=1 and the offenders are gated
+#   in src/libslic3r/utils.cpp and similar places via `#if defined(SLIC3R_IOS)`.
 # - No Metal/Accelerate bindings needed at this layer — slicer is pure CPU.
 # - Simulator builds are out of scope for v1; device-only (arm64-apple-ios).
+#   Stage 3d will add an ios-simulator-arm64 slice for UI tests + CI smoke.
 
 set(CMAKE_SYSTEM_NAME iOS)
 set(CMAKE_SYSTEM_PROCESSOR arm64)
