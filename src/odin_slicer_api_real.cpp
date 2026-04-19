@@ -85,29 +85,87 @@ int odin_slicer_load_mesh(odin_slicer_handle_t* h, const char* mesh_path) {
     }
 }
 
+static std::string jval_to_string(const nlohmann::json& val) {
+    if (val.is_string()) return val.get<std::string>();
+    if (val.is_boolean()) return val.get<bool>() ? "1" : "0";
+    if (val.is_number_integer()) return std::to_string(val.get<long long>());
+    if (val.is_number_float()) return std::to_string(val.get<double>());
+    if (val.is_number()) return std::to_string(val.get<double>());
+    return {};
+}
+
+// OrcaSlicer's profile schema wraps every scalar in a 1-element array so a
+// single serializer works across multi-extruder configs. Flatten arrays into
+// libslic3r's comma-delimited convention (ConfigOptionFloats/Ints/Strings).
+static std::string jarray_to_string(const nlohmann::json& arr) {
+    std::string out;
+    bool first = true;
+    for (const auto& v : arr) {
+        std::string s = jval_to_string(v);
+        if (s.empty() && !v.is_string()) continue;
+        if (!first) out.push_back(',');
+        out += s;
+        first = false;
+    }
+    return out;
+}
+
 int odin_slicer_load_profile_json(odin_slicer_handle_t* h, const char* json) {
     if (!h || !json) return ODIN_SLICER_ERR_ARG;
     try {
         auto j = nlohmann::json::parse(json);
-        // OrcaSlicer's DynamicPrintConfig accepts a flat key → value dict.
-        // The json we receive has nested "display"/"raw" from ODIN Studio;
-        // we only feed the flat "raw" OrcaSlicer-schema subset.
-        nlohmann::json flat = j.contains("raw") ? j["raw"] : j;
+        // Accept the merged flat dict from the caller (process + machine +
+        // filament already unified). We also support a `raw` sub-object and a
+        // compat-shape `{process, machine, filament}` for callers that pre-
+        // stage the three profile layers without merging.
+        nlohmann::json merged = nlohmann::json::object();
+        auto consume = [&](const nlohmann::json& src) {
+            if (!src.is_object()) return;
+            for (auto it = src.begin(); it != src.end(); ++it) {
+                merged[it.key()] = it.value();
+            }
+        };
+        if (j.contains("raw") && j["raw"].is_object()) {
+            consume(j["raw"]);
+        }
+        // Priority: filament → machine → process (process wins on conflicts,
+        // because it carries the user's active slicing intent).
+        if (j.contains("filament")) consume(j["filament"]);
+        if (j.contains("machine"))  consume(j["machine"]);
+        if (j.contains("process"))  consume(j["process"]);
+        if (merged.empty()) consume(j); // flat already
+
         Slic3r::DynamicPrintConfig& cfg = h->config;
-        for (auto it = flat.begin(); it != flat.end(); ++it) {
+        size_t applied = 0;
+        size_t skipped = 0;
+        for (auto it = merged.begin(); it != merged.end(); ++it) {
             const std::string& key = it.key();
             const nlohmann::json& val = it.value();
+            // OrcaSlicer meta-fields; libslic3r doesn't know about them.
+            if (key == "type" || key == "name" || key == "inherits" ||
+                key == "from" || key == "filament_id" || key == "setting_id" ||
+                key == "instantiation" || key == "version" || key == "is_custom_defined") {
+                continue;
+            }
             std::string str;
-            if (val.is_string()) str = val.get<std::string>();
-            else if (val.is_number()) str = std::to_string(val.get<double>());
-            else if (val.is_boolean()) str = val.get<bool>() ? "1" : "0";
-            else continue;
+            if (val.is_array()) {
+                str = jarray_to_string(val);
+            } else {
+                str = jval_to_string(val);
+            }
+            if (str.empty() && !val.is_string()) continue;
             try {
                 cfg.set_deserialize_strict(key, str);
+                ++applied;
             } catch (...) {
-                // Unknown key — skip, profile may have OrcaSlicer-specific
-                // fields libslic3r doesn't recognise. Not fatal.
+                // Unknown key / bad shape — skip. Profile may carry
+                // OrcaSlicer-specific fields libslic3r doesn't recognise.
+                ++skipped;
             }
+        }
+        if (applied == 0) {
+            set_error(h, "load_profile_json: no keys applied (" + std::to_string(skipped) + " skipped)");
+            return ODIN_SLICER_ERR_PROFILE;
         }
         return ODIN_SLICER_OK;
     } catch (const std::exception& e) {
