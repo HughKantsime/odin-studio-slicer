@@ -85,6 +85,57 @@ int odin_slicer_load_mesh(odin_slicer_handle_t* h, const char* mesh_path) {
     }
 }
 
+int odin_slicer_add_mesh(odin_slicer_handle_t* h,
+                         const char* mesh_path,
+                         const float* transform_row_major16) {
+    if (!h || !mesh_path) return ODIN_SLICER_ERR_ARG;
+    if (h->model.objects.size() >= 16) {
+        set_error(h, "add_mesh: instance cap (16) reached");
+        return ODIN_SLICER_ERR_ARG;
+    }
+    try {
+        Slic3r::Model loaded = Slic3r::Model::read_from_file(
+            std::string(mesh_path),
+            /*config=*/nullptr,
+            /*config_substitutions=*/nullptr,
+            Slic3r::LoadStrategy::AddDefaultInstances
+        );
+        if (loaded.objects.empty()) {
+            set_error(h, "add_mesh: mesh file contained no objects");
+            return ODIN_SLICER_ERR_MESH;
+        }
+
+        // Pre-compute the transform once; apply to every imported instance.
+        Slic3r::Transform3d xform = Slic3r::Transform3d::Identity();
+        if (transform_row_major16) {
+            Eigen::Matrix4d m;
+            for (int r = 0; r < 4; ++r)
+                for (int c = 0; c < 4; ++c)
+                    m(r, c) = static_cast<double>(transform_row_major16[r * 4 + c]);
+            xform.matrix() = m;
+        }
+
+        for (Slic3r::ModelObject* src : loaded.objects) {
+            // add_object copies volumes/instances deep enough to survive the
+            // source Model going out of scope. Then stamp the transform onto
+            // every instance (usually one).
+            Slic3r::ModelObject* dst = h->model.add_object(*src);
+            Slic3r::Geometry::Transformation geo;
+            geo.set_matrix(xform);
+            for (Slic3r::ModelInstance* inst : dst->instances) {
+                inst->set_transformation(geo);
+            }
+        }
+        return ODIN_SLICER_OK;
+    } catch (const std::exception& e) {
+        set_error(h, std::string("add_mesh: ") + e.what());
+        return ODIN_SLICER_ERR_MESH;
+    } catch (...) {
+        set_error(h, "add_mesh: unknown error");
+        return ODIN_SLICER_ERR_MESH;
+    }
+}
+
 static std::string jval_to_string(const nlohmann::json& val) {
     if (val.is_string()) return val.get<std::string>();
     if (val.is_boolean()) return val.get<bool>() ? "1" : "0";

@@ -70,8 +70,24 @@ odin_slicer_handle_t* odin_slicer_begin(const char* cache_dir);
 /**
  * Load a mesh from a path. STL + 3MF + OBJ supported by libslic3r's Model IO.
  * Returns 0 on success, negative error code on failure.
+ *
+ * Single-model workflow. For multi-model plates call `odin_slicer_add_mesh`
+ * for each additional placed instance (see below).
  */
 int odin_slicer_load_mesh(odin_slicer_handle_t* h, const char* mesh_path);
+
+/**
+ * Add an additional mesh instance at the given world transform. Call after
+ * `odin_slicer_load_mesh` (or after a prior `add_mesh`) to build a multi-model
+ * plate. `transform_row_major16` is a row-major 4x4 float matrix in mm units;
+ * pass NULL to place at origin identity.
+ *
+ * Returns 0 on success, negative error code on failure. Up to 16 instances
+ * are accepted per handle; beyond that the call returns ODIN_SLICER_ERR_ARG.
+ */
+int odin_slicer_add_mesh(odin_slicer_handle_t* h,
+                         const char* mesh_path,
+                         const float* transform_row_major16);
 
 /**
  * Load a profile — JSON string following OrcaSlicer's machine/filament/process
