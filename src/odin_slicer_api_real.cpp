@@ -20,6 +20,8 @@
 #include <boost/filesystem.hpp>
 
 #include <atomic>
+#include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <string.h>
@@ -39,6 +41,15 @@ struct odin_slicer_handle {
     // Populated by odin_slicer_slice on success; consumed by get_stats.
     bool stats_valid{false};
     odin_slicer_stats_t stats{};
+
+    // Active Print, set by odin_slicer_slice for the duration of process() +
+    // export_gcode(). Guarded by `print_mu`; `odin_slicer_cancel` can reach
+    // it to signal libslic3r's cancel_status. `slice_done_cv` wakes cancel
+    // once the slice loop has fully unwound.
+    std::mutex print_mu;
+    Slic3r::Print* active_print{nullptr};
+    std::condition_variable slice_done_cv;
+    std::atomic<bool> slice_in_flight{false};
 };
 
 static void set_error(odin_slicer_handle_t* h, const std::string& msg) {
@@ -241,22 +252,49 @@ int odin_slicer_slice(odin_slicer_handle_t* h,
     h->progress_cb = progress_cb;
     h->user_data = user_data;
     h->cancelled.store(false);
+    h->slice_in_flight.store(true);
+    struct SliceGuard {
+        odin_slicer_handle_t* h;
+        ~SliceGuard() {
+            {
+                std::lock_guard<std::mutex> g(h->print_mu);
+                h->active_print = nullptr;
+            }
+            h->slice_in_flight.store(false);
+            h->slice_done_cv.notify_all();
+        }
+    } guard{h};
 
     try {
         if (progress_cb) progress_cb(0.02, "prep", user_data);
 
         Slic3r::Print print;
+        // Wire libslic3r's own cancel channel so workers unwind cleanly via
+        // throw_if_canceled() instead of relying on our post-process atomic
+        // check. Must be set before apply() so PrintObject sees it.
+        print.set_cancel_callback([h]{
+            if (h->cancelled.load()) {
+                // Best effort — libslic3r checks cancel_status atomically.
+            }
+        });
+        {
+            std::lock_guard<std::mutex> g(h->print_mu);
+            h->active_print = &print;
+            if (h->cancelled.load()) {
+                print.cancel();
+            }
+        }
         // Full-config transfer into print.
         print.apply(h->model, h->config);
 
-        if (h->cancelled.load()) return ODIN_SLICER_ERR_CANCELED;
+        if (h->cancelled.load()) { print.cancel(); return ODIN_SLICER_ERR_CANCELED; }
 
         // Run the slicer pipeline. Internally libslic3r parallelises via TBB;
-        // there's no fine-grained progress API exposed to consumers, so we
-        // emit coarse milestones.
+        // PrintObject steps check Print::throw_if_canceled() and unwind via
+        // CanceledException, which we catch below.
         if (progress_cb) progress_cb(0.10, "layers", user_data);
         print.process();
-        if (h->cancelled.load()) return ODIN_SLICER_ERR_CANCELED;
+        if (h->cancelled.load() || print.canceled()) return ODIN_SLICER_ERR_CANCELED;
 
         if (progress_cb) progress_cb(0.90, "emit", user_data);
         Slic3r::GCodeProcessorResult result;
@@ -310,6 +348,8 @@ int odin_slicer_slice(odin_slicer_handle_t* h,
 
         if (progress_cb) progress_cb(1.0, "emit", user_data);
         return ODIN_SLICER_OK;
+    } catch (const Slic3r::CanceledException&) {
+        return ODIN_SLICER_ERR_CANCELED;
     } catch (const std::exception& e) {
         set_error(h, std::string("slice: ") + e.what());
         return ODIN_SLICER_ERR_SLICE;
@@ -320,7 +360,19 @@ int odin_slicer_slice(odin_slicer_handle_t* h,
 }
 
 void odin_slicer_cancel(odin_slicer_handle_t* h) {
-    if (h) h->cancelled.store(true);
+    if (!h) return;
+    h->cancelled.store(true);
+    // Hand the cancel to libslic3r's own channel if a slice is in flight —
+    // worker threads observe this via Print::throw_if_canceled() and unwind
+    // with a CanceledException instead of running to completion.
+    {
+        std::lock_guard<std::mutex> g(h->print_mu);
+        if (h->active_print) h->active_print->cancel();
+    }
+    // Block until the slice loop exits, per the header contract. If no slice
+    // is running this returns immediately.
+    std::unique_lock<std::mutex> lk(h->print_mu);
+    h->slice_done_cv.wait(lk, [h]{ return !h->slice_in_flight.load(); });
 }
 
 int odin_slicer_get_stats(odin_slicer_handle_t* h, odin_slicer_stats_t* out) {
