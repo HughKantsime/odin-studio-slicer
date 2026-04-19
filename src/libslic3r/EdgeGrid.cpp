@@ -1482,6 +1482,12 @@ bool EdgeGrid::Grid::has_intersecting_edges() const
 
 void EdgeGrid::save_png(const EdgeGrid::Grid &grid, const BoundingBox &bbox, coord_t resolution, const char *path, size_t scale)
 {
+#if defined(SLIC3R_IOS)
+    // PNGReadWrite is excluded on iOS (libpng not linked). save_png is a
+    // debug aid; silent no-op is safe.
+    (void)grid; (void)bbox; (void)resolution; (void)path; (void)scale;
+    return;
+#else
     coord_t w = (bbox.max(0) - bbox.min(0) + resolution - 1) / resolution;
     coord_t h = (bbox.max(1) - bbox.min(1) + resolution - 1) / resolution;
 
@@ -1566,6 +1572,7 @@ void EdgeGrid::save_png(const EdgeGrid::Grid &grid, const BoundingBox &bbox, coo
     }
 
 	png::write_rgb_to_file_scaled(path, w, h, pixels, scale);
+#endif // SLIC3R_IOS
 }
 
 // Find all pairs of intersectiong edges from the set of polygons.

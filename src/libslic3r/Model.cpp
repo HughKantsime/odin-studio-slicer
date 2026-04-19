@@ -1217,6 +1217,13 @@ int ModelObject::get_backup_id() const { return m_model ? get_model()->get_objec
 // BBS: Boolean Operations impl. - MusangKing
 bool ModelObject::make_boolean(ModelObject *cut_object, const std::string &boolean_opts)
 {
+#if defined(SLIC3R_IOS)
+    // Boolean ops live in MeshBoolean.cpp which we exclude on iOS (pulls in
+    // CGAL + mcut heavy deps). Unreachable through the UI today; stub out
+    // so the linker resolves without pulling in the TU.
+    (void)cut_object; (void)boolean_opts;
+    return false;
+#else
     // merge meshes into single volume instead of multi-parts object
     if (this->volumes.size() != 1) {
         // we can't merge meshes if there's not just one volume
@@ -1234,6 +1241,7 @@ bool ModelObject::make_boolean(ModelObject *cut_object, const std::string &boole
         vol->name        = this->name + "_" + std::to_string(i++);
     }
     return true;
+#endif // SLIC3R_IOS
 }
 
 ModelVolume *ModelObject::add_volume(const TriangleMesh &mesh, bool modify_to_center_geometry)

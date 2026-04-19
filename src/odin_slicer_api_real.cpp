@@ -10,6 +10,13 @@
 
 #include "odin_slicer.h"
 
+// libslic3r TUs reference nsvgParse/nsvgDelete but never define the
+// nanosvg implementation — the desktop build gets it from the GUI layer.
+// Since iOS doesn't build the GUI, provide the impl here in exactly one TU.
+#define NANOSVG_IMPLEMENTATION
+#define NANOSVGRAST_IMPLEMENTATION
+#include "nanosvg/nanosvg.h"
+
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Model.hpp"
 #include "libslic3r/PresetBundle.hpp"
