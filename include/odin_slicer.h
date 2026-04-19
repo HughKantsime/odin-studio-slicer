@@ -18,12 +18,27 @@
 #define ODIN_SLICER_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct odin_slicer_handle odin_slicer_handle_t;
+
+/**
+ * Slice stats populated after `odin_slicer_slice()` returns OK.
+ * Retrieve via `odin_slicer_get_stats()`. All numeric fields are 0 when a
+ * slice has not been run or the result was not captured.
+ */
+typedef struct odin_slicer_stats {
+    double   total_time_sec;       /* Normal-mode estimated print time. */
+    double   filament_length_mm;   /* Sum across all extruders. */
+    double   filament_weight_g;    /* Sum across all extruders, using density. */
+    double   filament_volume_mm3;  /* Sum across all extruders. */
+    uint32_t layer_count;          /* Distinct layer_ids in the move vertex set. */
+    uint32_t move_count;           /* Total MoveVertex entries in the result. */
+} odin_slicer_stats_t;
 
 /* Error codes. Negative = error, 0 = ok, positive reserved. */
 #define ODIN_SLICER_OK                  0
@@ -78,6 +93,13 @@ int odin_slicer_slice(odin_slicer_handle_t* h,
 
 /** Signal an in-flight slice to cancel. Returns once cancellation is observed. */
 void odin_slicer_cancel(odin_slicer_handle_t* h);
+
+/**
+ * Populate `out` with stats from the most recent successful slice.
+ * Returns ODIN_SLICER_OK on success, ODIN_SLICER_ERR_ARG if no slice has
+ * completed on this handle yet or args are NULL.
+ */
+int odin_slicer_get_stats(odin_slicer_handle_t* h, odin_slicer_stats_t* out);
 
 /**
  * Human-readable error for the most recent failed call on this handle.

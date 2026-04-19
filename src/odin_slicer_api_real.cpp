@@ -35,6 +35,10 @@ struct odin_slicer_handle {
     // Progress callback cached between load + slice.
     odin_slicer_progress_cb progress_cb{nullptr};
     void* user_data{nullptr};
+
+    // Populated by odin_slicer_slice on success; consumed by get_stats.
+    bool stats_valid{false};
+    odin_slicer_stats_t stats{};
 };
 
 static void set_error(odin_slicer_handle_t* h, const std::string& msg) {
@@ -153,6 +157,48 @@ int odin_slicer_slice(odin_slicer_handle_t* h,
             return ODIN_SLICER_ERR_IO;
         }
 
+        // Stats distillation from GCodeProcessorResult. Normal mode (idx 0),
+        // Stealth mode (idx 1) is ignored for the stats surface.
+        h->stats = odin_slicer_stats_t{};
+        h->stats.total_time_sec = static_cast<double>(
+            result.print_statistics.modes[0].time);
+        double total_volume_mm3 = 0.0;
+        for (const auto& kv : result.print_statistics.total_volumes_per_extruder) {
+            total_volume_mm3 += kv.second;
+        }
+        h->stats.filament_volume_mm3 = total_volume_mm3;
+        // Length = volume / cross-section area. Area = pi * (d/2)^2.
+        // Use first extruder's diameter if available (multi-material averages
+        // are out of scope for v1 stats).
+        double filament_length_mm = 0.0;
+        double filament_weight_g = 0.0;
+        if (!result.filament_diameters.empty()) {
+            for (const auto& kv : result.print_statistics.total_volumes_per_extruder) {
+                size_t ext = kv.first;
+                double d = (ext < result.filament_diameters.size())
+                    ? static_cast<double>(result.filament_diameters[ext])
+                    : static_cast<double>(result.filament_diameters[0]);
+                double area_mm2 = 3.14159265358979323846 * (d * 0.5) * (d * 0.5);
+                if (area_mm2 > 0.0) filament_length_mm += kv.second / area_mm2;
+                if (ext < result.filament_densities.size()) {
+                    // density is g/cm^3; volume is mm^3 → divide by 1000 for cm^3.
+                    filament_weight_g += (kv.second / 1000.0)
+                        * static_cast<double>(result.filament_densities[ext]);
+                }
+            }
+        }
+        h->stats.filament_length_mm = filament_length_mm;
+        h->stats.filament_weight_g = filament_weight_g;
+        // Layer count: max layer_id + 1, skipping the sentinel 0 on the first
+        // move vertex.
+        uint32_t max_layer = 0;
+        for (const auto& mv : result.moves) {
+            if (mv.layer_id > max_layer) max_layer = mv.layer_id;
+        }
+        h->stats.layer_count = max_layer + (result.moves.empty() ? 0u : 1u);
+        h->stats.move_count = static_cast<uint32_t>(result.moves.size());
+        h->stats_valid = true;
+
         if (progress_cb) progress_cb(1.0, "emit", user_data);
         return ODIN_SLICER_OK;
     } catch (const std::exception& e) {
@@ -166,6 +212,16 @@ int odin_slicer_slice(odin_slicer_handle_t* h,
 
 void odin_slicer_cancel(odin_slicer_handle_t* h) {
     if (h) h->cancelled.store(true);
+}
+
+int odin_slicer_get_stats(odin_slicer_handle_t* h, odin_slicer_stats_t* out) {
+    if (!h || !out) return ODIN_SLICER_ERR_ARG;
+    if (!h->stats_valid) {
+        set_error(h, "no stats available — slice() has not succeeded");
+        return ODIN_SLICER_ERR_ARG;
+    }
+    *out = h->stats;
+    return ODIN_SLICER_OK;
 }
 
 const char* odin_slicer_last_error(odin_slicer_handle_t* h) {
