@@ -55,11 +55,13 @@ std::unique_ptr<CompressedImageBuffer> compress_thumbnail_png(const ThumbnailDat
 std::unique_ptr<CompressedImageBuffer> compress_thumbnail_jpg(const ThumbnailData& data)
 {
 #if defined(SLIC3R_IOS)
-    // iOS build doesn't link libjpeg. JPG thumbnails in G-code are an
-    // optional OrcaSlicer feature — returning nullptr is acceptable; callers
-    // fall back to PNG / QOI.
-    (void)data;
-    return nullptr;
+    // iOS build doesn't link libjpeg. Returning nullptr used to crash the
+    // caller (Thumbnails.cpp:262 → 3MF writer) because it dereferences
+    // `->data` unconditionally. Transparently substitute a PNG so any
+    // profile requesting JPG still ships a valid thumbnail. ODIN Studio
+    // also scrubs `thumbnail_format=jpg` at profile load time, so this is
+    // belt + braces.
+    return compress_thumbnail_png(data);
 #else
     // Take vector of RGBA pixels and flip the image vertically
     std::vector<unsigned char> rgba_pixels(data.pixels.size());
