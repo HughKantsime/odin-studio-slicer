@@ -44,6 +44,24 @@ target_compile_definitions(odin_slicer_real PRIVATE
     BOOST_LOG_NO_THREAD_ATTR=1
 )
 
+# Bake the fork commit SHA into the library so `odin_slicer_fork_commit()`
+# returns an immutable identifier at runtime. Falls back to "unknown" when
+# git isn't available (source archive builds).
+execute_process(
+    COMMAND git -C ${SLICER_ROOT} rev-parse --short=12 HEAD
+    OUTPUT_VARIABLE ODIN_SLICER_FORK_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+    RESULT_VARIABLE GIT_RESULT
+)
+if (NOT GIT_RESULT EQUAL 0 OR ODIN_SLICER_FORK_COMMIT STREQUAL "")
+    set(ODIN_SLICER_FORK_COMMIT "unknown")
+endif()
+target_compile_definitions(odin_slicer_real PRIVATE
+    ODIN_SLICER_FORK_COMMIT="${ODIN_SLICER_FORK_COMMIT}"
+)
+message(STATUS "odin_slicer fork commit baked in: ${ODIN_SLICER_FORK_COMMIT}")
+
 set_target_properties(odin_slicer_real PROPERTIES
     OUTPUT_NAME odin_slicer
     XCODE_ATTRIBUTE_ENABLE_BITCODE NO

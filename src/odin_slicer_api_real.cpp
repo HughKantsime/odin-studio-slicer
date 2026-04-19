@@ -397,4 +397,12 @@ int odin_slicer_is_linked(void) {
     return 1;
 }
 
+#ifndef ODIN_SLICER_FORK_COMMIT
+#define ODIN_SLICER_FORK_COMMIT "unknown"
+#endif
+
+const char* odin_slicer_fork_commit(void) {
+    return ODIN_SLICER_FORK_COMMIT;
+}
+
 } // extern "C"

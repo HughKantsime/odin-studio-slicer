@@ -132,6 +132,15 @@ void odin_slicer_end(odin_slicer_handle_t* h);
  */
 int odin_slicer_is_linked(void);
 
+/**
+ * Build-time git commit hash of the slicer fork that produced this archive.
+ * Returns a short SHA string (e.g. "50d8024d"), or "unknown" when the build
+ * system couldn't resolve it. Pointer is valid for the lifetime of the
+ * process. ODIN Studio surfaces this in Legal view to satisfy AGPL-3.0 §13
+ * (source offer pointed at an immutable commit, not a moving branch head).
+ */
+const char* odin_slicer_fork_commit(void);
+
 #ifdef __cplusplus
 }
 #endif
